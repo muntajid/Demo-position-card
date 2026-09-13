@@ -1,0 +1,16 @@
+{
+  "symbol": "IOSTUSDT",
+  "position": "Long",
+  "entry_price": "0.00179122",
+  "take_profit": "0.0019",
+  "stop_loss": "0.00175",
+  "leverage": "50x",
+  "risk_reward": "1:2.5",
+  "confidence": "85%",
+  "pnl": "+0.02",
+  "pnl_currency": "USDT",
+  "average_close_price": "0.0018",
+  "username": "muntajid",
+  "timestamp": "2026-09-13 22:07:15",
+  "referral_code": "768056928"
+}
