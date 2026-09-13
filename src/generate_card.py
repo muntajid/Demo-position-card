@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 """
-Binance Futures Position Card Generator - EXACT SAME as reference
-IMG_20260913_220728.jpg
-
-If data/reference.jpg exists, uses it as background template for pixel-perfect match,
-otherwise generates from scratch with exact measurements.
-
-Measurements from reference (1080x1920):
-- Avatar 80px at 48,48, username 28px bold at 148,54, timestamp 16px at 148,88
-- Symbol 38px bold at 48,540
-- Long | 50x 20px at 48,594 (Long green #2EBD85)
-- PNL +0.02 64px bold green at 48,660, USDT 28px bold white at +0.02 width +16
-- Entry Price label 16px gray at 48,830, value 22px bold white at 48,860
-- Average Close Price label 16px gray at 572,830, value 22px bold white at 572,860
-- Footer border at H-280, Binance logo at 48, H-250, QR at W-228, H-250, 160px
+Binance Futures Position Card - EXACT SAME as reference
+Uses data/reference.jpg as template if exists for 100% pixel-perfect identical background
 """
 
 import json
@@ -44,9 +32,7 @@ COLORS = {
 }
 
 def find_font(bold=False, size=32):
-    paths = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ]
+    paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
     for p in paths:
         if os.path.exists(p):
             try:
@@ -110,7 +96,7 @@ def format_price(value):
     except:
         return str(value)
 
-def draw_watermark_exact(draw, W, H):
+def draw_watermark(draw, W, H):
     def diamond(cx, cy, size):
         return [(cx, cy - size), (cx + size, cy), (cx, cy + size), (cx - size, cy)]
     cx, cy = int(W * 0.70), int(H * 0.25)
@@ -123,7 +109,7 @@ def draw_watermark_exact(draw, W, H):
     cx2, cy2 = int(W * 0.85), int(H * 0.03)
     draw.polygon(diamond(cx2, cy2, 320), fill=(40, 40, 40))
 
-def draw_avatar_exact(draw, x, y, size=80):
+def draw_avatar(draw, x, y, size=80):
     draw.ellipse([x, y, x+size, y+size], fill=(50, 50, 50))
     draw.ellipse([x+2, y+2, x+size-2, y+size-2], fill=(42, 42, 42))
     face_size = int(size * 0.70)
@@ -140,7 +126,7 @@ def draw_avatar_exact(draw, x, y, size=80):
     ds = 6
     draw.polygon([(dcx, dcy-ds), (dcx+ds, dcy), (dcx, dcy+ds), (dcx-ds, dcy)], fill=(243, 186, 47))
 
-def draw_binance_logo_exact(draw, x, y):
+def draw_binance_logo(draw, x, y):
     def dpts(cx, cy, s):
         return [(cx, cy-s), (cx+s, cy), (cx, cy+s), (cx-s, cy)]
     cx, cy = x + 16, y + 16
@@ -155,7 +141,7 @@ def draw_binance_logo_exact(draw, x, y):
     draw.text((x+36, y+0), "BINANCE", fill=(243, 186, 47), font=font_binance)
     draw.text((x+36, y+20), "FUTURES", fill=(255, 255, 255), font=font_futures)
 
-def generate_qr_exact(size=160):
+def generate_qr(size=160):
     try:
         import qrcode
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=2)
@@ -215,11 +201,7 @@ def main():
         print(f"ERROR: Data file not found at {DATA_PATH}", file=sys.stderr)
         sys.exit(1)
     with open(DATA_PATH, "r") as f:
-        try:
-            data = json.load(f)
-        except json.JSONDecodeError as e:
-            print(f"ERROR: Invalid JSON in {DATA_PATH}: {e}", file=sys.stderr)
-            sys.exit(1)
+        data = json.load(f)
     try:
         validate_data(data)
     except ValueError as e:
@@ -241,74 +223,49 @@ def main():
 
     entry_price = format_price(data.get("entry_price"))
     avg_close = format_price(data.get("average_close_price")) if data.get("average_close_price") is not None else ""
-    tp = format_price(data.get("take_profit")) if data.get("take_profit") is not None else ""
-    sl = format_price(data.get("stop_loss")) if data.get("stop_loss") is not None else ""
 
-    pnl = str(data.get("pnl", "")).strip()
-    if not pnl:
-        pnl = "+0.00"
+    pnl = str(data.get("pnl", "")).strip() or "+0.00"
     pnl_currency = str(data.get("pnl_currency", "USDT")).strip() or "USDT"
     username = str(data.get("username", "muntajid")).strip() or "muntajid"
-    timestamp = str(data.get("timestamp", "")).strip()
-    if not timestamp:
-        from datetime import datetime, timezone
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = str(data.get("timestamp", "")).strip() or "2026-09-13 22:07:15"
     referral_code = str(data.get("referral_code", "768056928")).strip() or "768056928"
 
-    # If reference.jpg exists, use it as background for pixel-perfect match
+    # Use reference template if exists for 100% pixel-perfect background
     if REFERENCE_PATH.exists():
-        print(f"Using reference template: {REFERENCE_PATH}")
-        img = Image.open(REFERENCE_PATH).convert("RGB")
-        # Resize to target if needed
-        if img.size != (W, H):
-            img = img.resize((W, H), Image.LANCZOS)
+        print(f"Using reference template for exact background: {REFERENCE_PATH}")
+        base = Image.open(REFERENCE_PATH).convert("RGB")
+        if base.size != (W, H):
+            base = base.resize((W, H), Image.LANCZOS)
+        img = base.copy()
         draw = ImageDraw.Draw(img)
-        # Cover old text areas with black rectangles to allow new text
-        # Cover symbol area
-        draw.rectangle([MARGIN, 530, W-MARGIN, 580], fill=(0,0,0))
-        # Cover position area
-        draw.rectangle([MARGIN, 585, W-MARGIN, 615], fill=(0,0,0))
-        # Cover PNL area
-        draw.rectangle([MARGIN, 650, W-MARGIN, 750], fill=(0,0,0))
-        # Cover price areas
-        draw.rectangle([MARGIN, 820, W-MARGIN, 900], fill=(0,0,0))
-        # Cover username/timestamp
-        draw.rectangle([MARGIN+100, 40, W-MARGIN, 120], fill=(0,0,0))
-        # Cover referral code area
-        draw.rectangle([MARGIN, H-200, MARGIN+400, H-50], fill=(0,0,0))
-        # Keep watermark, avatar, Binance logo, QR from reference for exact match
+        # Cover text areas with large black rectangles - generous to fully erase old text
+        # Username + timestamp area (top)
+        draw.rectangle([MARGIN, MARGIN-10, W-MARGIN, MARGIN+100], fill=(0,0,0))
+        # Symbol area
+        draw.rectangle([MARGIN-10, 520, W-MARGIN+10, 580], fill=(0,0,0))
+        # Position area
+        draw.rectangle([MARGIN-10, 580, W-MARGIN+10, 620], fill=(0,0,0))
+        # PNL area
+        draw.rectangle([MARGIN-10, 630, W-MARGIN+10, 760], fill=(0,0,0))
+        # Price areas
+        draw.rectangle([MARGIN-10, 800, W-MARGIN+10, 920], fill=(0,0,0))
+        # Referral code area - only cover text, keep Binance logo and QR from template
+        draw.rectangle([MARGIN, H-130, MARGIN+500, H-20], fill=(0,0,0))
+        # Note: we keep watermark, avatar, Binance logo, QR from template for exact match
     else:
         img = Image.new("RGB", (W, H), COLORS["bg"])
         draw = ImageDraw.Draw(img)
-        draw_watermark_exact(draw, W, H)
-        avatar_size = 80
-        avatar_x, avatar_y = MARGIN, MARGIN
-        draw_avatar_exact(draw, avatar_x, avatar_y, avatar_size)
-        # Footer border and logos will be drawn below
+        draw_watermark(draw, W, H)
+        draw_avatar(draw, MARGIN, MARGIN, 80)
 
-    # If not using reference template, need to draw avatar and watermark already done
-    # If using reference template, avatar and watermark already exist from template, but we redraw username/timestamp
+    draw = ImageDraw.Draw(img)
 
-    if not REFERENCE_PATH.exists():
-        draw = ImageDraw.Draw(img)
-    else:
-        draw = ImageDraw.Draw(img)
-
-    # Top user - exact position as reference
+    # Draw text - same positions whether template or not
     font_user = get_font(26, bold=True)
     font_time = get_font(16, bold=False)
-    if not REFERENCE_PATH.exists():
-        # Avatar already drawn
-        avatar_size = 80
-        avatar_x, avatar_y = MARGIN, MARGIN
-        draw.text((avatar_x + avatar_size + 20, avatar_y + 8), username, fill=COLORS["white"], font=font_user)
-        draw.text((avatar_x + avatar_size + 20, avatar_y + 38), timestamp, fill=COLORS["gray_light"], font=font_time)
-    else:
-        # On template, redraw username/timestamp over black rectangle
-        draw.text((MARGIN + 100, 48), username, fill=COLORS["white"], font=font_user)
-        draw.text((MARGIN + 100, 78), timestamp, fill=COLORS["gray_light"], font=font_time)
+    draw.text((MARGIN + 100, 48), username, fill=COLORS["white"], font=font_user)
+    draw.text((MARGIN + 100, 78), timestamp, fill=COLORS["gray_light"], font=font_time)
 
-    # Symbol - exact position and size as reference
     symbol_font_size = 38
     if len(full_symbol) > 20:
         symbol_font_size = 30
@@ -318,21 +275,18 @@ def main():
     symbol_y = 535
     draw.text((MARGIN, symbol_y), full_symbol, fill=COLORS["white"], font=font_symbol)
 
-    # Position | Leverage - exact as reference
     pos_y = symbol_y + symbol_font_size + 12
     font_pos = get_font(20, bold=False)
     pos_color = COLORS["green"] if is_long else COLORS["red"]
     pos_text = position_display
     sep_text = "  |  "
     lev_text = leverage
-
     try:
         w_pos = draw.textbbox((0,0), pos_text, font=font_pos)[2]
         w_sep = draw.textbbox((0,0), sep_text, font=font_pos)[2]
     except:
         w_pos = len(pos_text)*12
         w_sep = 20
-
     x_cur = MARGIN
     draw.text((x_cur, pos_y), pos_text, fill=pos_color, font=font_pos)
     x_cur += w_pos
@@ -340,72 +294,54 @@ def main():
     x_cur += w_sep
     draw.text((x_cur, pos_y), lev_text, fill=COLORS["gray_light"], font=font_pos)
 
-    # PNL - exact as reference
     pnl_y = pos_y + 60
     font_pnl_big = get_font(64, bold=True)
     font_pnl_curr = get_font(28, bold=True)
-
     try:
         w_pnl = draw.textbbox((0,0), pnl, font=font_pnl_big)[2]
     except:
         w_pnl = len(pnl)*36
-
     pnl_color = COLORS["green"] if not pnl.startswith("-") else COLORS["red"]
     draw.text((MARGIN, pnl_y), pnl, fill=pnl_color, font=font_pnl_big)
     draw.text((MARGIN + w_pnl + 14, pnl_y + 22), pnl_currency, fill=COLORS["white"], font=font_pnl_curr)
 
-    # Prices - exact as reference
     price_y = pnl_y + 140
     font_label = get_font(18, bold=False)
     font_val = get_font(22, bold=True)
-
-    def two_col(y, l1, v1, l2, v2, c1=None, c2=None):
-        c1 = c1 or COLORS["white"]
-        c2 = c2 or COLORS["white"]
+    def two_col(y, l1, v1, l2, v2):
         col_w = (W - MARGIN*2)//2
         draw.text((MARGIN, y), l1, fill=COLORS["gray_label"], font=font_label)
-        draw.text((MARGIN, y+26), v1, fill=c1, font=font_val)
+        draw.text((MARGIN, y+26), v1, fill=COLORS["white"], font=font_val)
         rx = MARGIN + col_w + 20
         draw.text((rx, y), l2, fill=COLORS["gray_label"], font=font_label)
-        draw.text((rx, y+26), v2, fill=c2, font=font_val)
+        draw.text((rx, y+26), v2, fill=COLORS["white"], font=font_val)
         return y + 80
-
     y = price_y
-
     if avg_close:
         y = two_col(y, "Entry Price", entry_price, "Average Close Price", avg_close)
-    elif tp:
-        y = two_col(y, "Entry Price", entry_price, "Take Profit", tp, c2=COLORS["green"])
     else:
         draw.text((MARGIN, y), "Entry Price", fill=COLORS["gray_label"], font=font_label)
         draw.text((MARGIN, y+26), entry_price, fill=COLORS["white"], font=font_val)
-        y += 80
 
-    if tp and sl and avg_close:
-        y += 8
-        y = two_col(y, "Take Profit", tp, "Stop Loss", sl, c1=COLORS["green"], c2=COLORS["red"])
-
-    # Footer - exact as reference
     footer_y = H - 280
     if not REFERENCE_PATH.exists():
         draw.line([(0, footer_y), (W, footer_y)], fill=COLORS["border"], width=1)
-        logo_x, logo_y = MARGIN, footer_y + 30
-        draw_binance_logo_exact(draw, logo_x, logo_y)
+        draw_binance_logo(draw, MARGIN, footer_y + 30)
         font_ref_lbl = get_font(16, bold=False)
         font_ref_code = get_font(18, bold=True)
-        ref_y = logo_y + 68
+        ref_y = footer_y + 68
         draw.text((MARGIN+8, ref_y), "Referral Code", fill=COLORS["white"], font=font_ref_lbl)
         try:
             w_lbl = draw.textbbox((0,0), "Referral Code ", font=font_ref_lbl)[2]
         except:
             w_lbl = 130
         draw.text((MARGIN+8+w_lbl+8, ref_y), referral_code, fill=COLORS["white"], font=font_ref_code)
-        qr_img = generate_qr_exact(160)
+        qr_img = generate_qr(160)
         qr_x = W - MARGIN - qr_img.width - 8
         qr_y = footer_y + 30
         img.paste(qr_img, (qr_x, qr_y))
     else:
-        # On template, keep original footer graphics for pixel-perfect, only redraw referral code
+        # Template mode: keep Binance logo and QR from template, only redraw referral code
         font_ref_lbl = get_font(16, bold=False)
         font_ref_code = get_font(18, bold=True)
         draw.text((MARGIN+8, H-110), "Referral Code", fill=COLORS["white"], font=font_ref_lbl)
@@ -417,7 +353,7 @@ def main():
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     img.save(OUTPUT_PATH, "PNG", optimize=True)
-    print(f"Generated card: {OUTPUT_PATH}")
+    print(f"Generated: {OUTPUT_PATH}")
     return OUTPUT_PATH
 
 if __name__ == "__main__":
